@@ -1,42 +1,33 @@
 ---
-import SeriesSpine from '~/components/SeriesSpine.astro'
 /**
- * /  — oriz-blog homepage ("Signal Press" front page).
+ * / — oriz-blog-gaming homepage ("Arcade Cabinet").
  *
- * Above the fold: a real newspaper masthead — mono dateline (Vol. N · date ·
- * dispatch count), a big Source Serif 4 nameplate, the active-series spine
- * (`●─●─○─○`), and a colour-flagged LEAD STORY. Below: three hairline strata:
- *   1. IN PROGRESS — series spines
- *   2. RECENT      — last 7 posts, each with its vertical desk kicker
- *   3. BY CATEGORY — one typographic row, each desk in its vertical colour
+ * Structure (gaming-native, not newspaper):
+ *   1. GameCrtHero   — CRT bezel attract screen (signature module)
+ *   2. SELECT GAME   — cartridge tile grid (most recent posts)
+ *   3. CAMPAIGNS     — in-progress series as progress bars
+ *   4. SELECT GENRE  — category selector as arcade button row
  *
- * No cover images, no cards, no radius. Verticals (Dev/Finance/Culture/
- * Health/Personal) each carry their own marker colour (--v-*).
+ * No generic hero+card-grid. Every element is cartridge/CRT/arcade-native.
  */
+import GameCrtHero from '~/components/GameCrtHero.astro'
+import SeriesSpine from '~/components/SeriesSpine.astro'
+import CartridgeCard from '~/components/blog/CartridgeCard.astro'
 import BaseLayout from '~/layouts/BaseLayout.astro'
 import {
   getCategoriesWithCounts,
   getPostsInSeries,
   getPublishedPosts,
   getSeriesWithCounts,
-  postVertical,
-  readingTimeFor,
   slugifyTag,
-  verticalFor,
-  verticalLabel,
 } from '~/lib/blog'
 import { SITE_CONFIG } from '~/lib/config'
 
 const allPosts = await getPublishedPosts()
 const lead = allPosts[0]
-const recentPosts = allPosts.slice(1, 8)
+const gridPosts = allPosts.slice(0, 9)
 
 const seriesAll = await getSeriesWithCounts()
-// In-progress: series where at least one post exists. We model "published"
-// as the count of currently-published parts. Total is exposed as a heuristic
-// (count + a small tail of "drafting" dots) — for v1 of the v2 design, we
-// just use count for total and count for published, and animate the last
-// dot as `current` so the spine has the signature glyph (`⦿`) visible.
 type InProgress = {
   name: string
   slug: string
@@ -44,7 +35,6 @@ type InProgress = {
   published: number
   current: number
   latest: Date
-  parts: Awaited<ReturnType<typeof getPostsInSeries>>
 }
 const inProgress: InProgress[] = []
 for (const { series, count } of seriesAll.slice(0, 4)) {
@@ -53,51 +43,24 @@ for (const { series, count } of seriesAll.slice(0, 4)) {
     (max, p) => (p.data.pubDate > max ? p.data.pubDate : max),
     parts[0].data.pubDate,
   )
-  // Total must never be less than what's already published (otherwise the
-  // label reads "part 29 of 12"). Use the larger of: published count, the
-  // largest explicit `part` field, or published+1 to hint one more coming.
   const explicitMax = parts.reduce((mx, p) => {
     const v = typeof p.data.part === 'number' ? p.data.part : Number(p.data.part)
     return Number.isFinite(v) ? Math.max(mx, v) : mx
   }, 0)
   const total = Math.max(count, explicitMax, count + 1)
-  inProgress.push({
-    name: series,
-    slug: slugifyTag(series),
-    total,
-    published: count,
-    current: count, // last filled dot is "current"
-    latest,
-    parts,
-  })
+  inProgress.push({ name: series, slug: slugifyTag(series), total, published: count, current: count, latest })
 }
 inProgress.sort((a, b) => b.latest.valueOf() - a.latest.valueOf())
 
 const cats = await getCategoriesWithCounts()
 
-// Masthead dateline — "VOL. N · <today, long>" — the front-page nameplate.
 const now = new Date()
-const dateline = now.toLocaleDateString('en-GB', {
-  weekday: 'long',
+const dateline = now.toLocaleDateString('en-US', {
+  weekday: 'short',
   day: 'numeric',
-  month: 'long',
+  month: 'short',
   year: 'numeric',
-})
-const leadVertical = lead ? postVertical(lead) : 'personal'
-const leadRt = lead ? (lead.data.readingTime ?? readingTimeFor(lead)) : ''
-
-// "Days since" helper for the in-progress rail.
-function ago(date: Date): string {
-  const days = Math.floor((Date.now() - date.valueOf()) / 86_400_000)
-  if (days < 1) return 'today'
-  if (days === 1) return '1d ago'
-  if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  if (months === 1) return '1mo ago'
-  if (months < 12) return `${months}mo ago`
-  const years = Math.floor(days / 365)
-  return years === 1 ? '1y ago' : `${years}y ago`
-}
+}).toUpperCase()
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -116,73 +79,53 @@ const jsonLd = {
   hideSidebar
 >
   <div class="container-page">
-    {/* Masthead — arcade attract screen / HUD. */}
-    <section class="masthead" aria-label="Front page">
-      <div class="dateline mono">
-        <span class="dateline-vol">▸ Player 1</span>
-        <span class="dateline-sep" aria-hidden="true">·</span>
-        <span class="dateline-date">{dateline}</span>
-        <span class="dateline-sep" aria-hidden="true">·</span>
-        <span class="dateline-count"><span class="count">{allPosts.length}</span> drops logged</span>
-      </div>
-      <p class="nameplate">Press Start</p>
-      <p class="nameplate-sub">Bench-tested takes on games and gear. What to build, what to play, and how to actually get good — for players who read the spec sheet before the marketing.</p>
-      <div class="xp-bar" aria-hidden="true">
-        <span class="xp-label mono">XP</span>
-        <span class="xp-track">
-          <span class="xp-fill"></span>
-        </span>
-        <span class="xp-next mono">next drop</span>
-      </div>
-      {inProgress[0] && (
-        <p class="masthead-spine">
-          <span class="masthead-spine-label mono">Now running</span>
-          <SeriesSpine
-            total={inProgress[0].total}
-            published={inProgress[0].published}
-            current={inProgress[0].current}
-            size="md"
-          />
-          <a class="masthead-spine-name" href={`/series/${inProgress[0].slug}/`}>{inProgress[0].name}</a>
-        </p>
+
+    {/* ── 1. CRT HERO (signature module) ──────────────────────────── */}
+    <GameCrtHero
+      postCount={allPosts.length}
+      latestTitle={lead?.data.title}
+      latestHref={lead ? `/blog/${lead.id}` : undefined}
+      dateline={`STAGE SELECT · ${dateline}`}
+    />
+
+    {/* ── 2. SELECT GAME — cartridge grid ─────────────────────────── */}
+    <section class="zone zone-grid" aria-labelledby="z-grid">
+      <header class="zone-head">
+        <h2 id="z-grid" class="zone-label mono">
+          <span class="zone-arrow" aria-hidden="true">▶</span>
+          Select Game
+        </h2>
+        <a class="zone-more mono" href="/blog/">View all {allPosts.length} →</a>
+      </header>
+      {gridPosts.length === 0 ? (
+        <p class="empty-state">No drops yet — first one loads soon.</p>
+      ) : (
+        <ul class="cartridge-grid" role="list">
+          {gridPosts.map((p, i) => (
+            <li>
+              <CartridgeCard post={p} index={i} />
+            </li>
+          ))}
+        </ul>
       )}
     </section>
 
-    {lead && (
-      <>
-        <hr class="rule-heavy" />
-        <section class="lead" data-vertical={leadVertical} aria-labelledby="lead-title">
-          <a class="lead-link" href={`/blog/${lead.id}`}>
-            <span class="lead-kicker mono">
-              <span class="lead-tick" aria-hidden="true"></span>
-              <span class="lead-desk">{verticalLabel(leadVertical)}</span>
-              <span class="lead-flag">New high score</span>
-            </span>
-            <h2 id="lead-title" class="lead-title">{lead.data.title}</h2>
-            <p class="lead-dek">{lead.data.description}</p>
-            <span class="lead-meta mono">
-              <time datetime={lead.data.pubDate.toISOString()}>{lead.data.pubDate.toISOString().slice(0, 10)}</time>
-              <span aria-hidden="true">·</span>
-              <span>{leadRt}</span>
-            </span>
-          </a>
-        </section>
-      </>
-    )}
-
-    <hr class="hairline" />
-
-    {/* Stratum 1 — IN PROGRESS. */}
+    {/* ── 3. CAMPAIGNS — in-progress series ───────────────────────── */}
     {inProgress.length > 0 && (
-      <section class="stratum stratum-progress" aria-labelledby="s-progress">
-        <h2 id="s-progress" class="stratum-h mono">▸ Continue</h2>
-        <ul class="progress-list">
+      <section class="zone zone-campaigns" aria-labelledby="z-campaigns">
+        <header class="zone-head">
+          <h2 id="z-campaigns" class="zone-label mono">
+            <span class="zone-arrow" aria-hidden="true">▶</span>
+            Campaigns
+          </h2>
+          <a class="zone-more mono" href="/series/">All series →</a>
+        </header>
+        <ul class="campaign-list">
           {inProgress.map((s) => (
-            <li class="progress-row">
-              <a class="progress-link" href={`/series/${s.slug}/`}>
-                <span class="progress-name">{s.name}</span>
-                <span class="progress-meta mono">part {s.published} of {s.total}</span>
-                <span class="progress-spine-mount">
+            <li class="campaign-row">
+              <a class="campaign-link" href={`/series/${s.slug}/`}>
+                <span class="campaign-name">{s.name}</span>
+                <span class="campaign-progress">
                   <SeriesSpine
                     total={s.total}
                     published={s.published}
@@ -190,7 +133,7 @@ const jsonLd = {
                     size="md"
                   />
                 </span>
-                <span class="progress-ago mono">{ago(s.latest)}</span>
+                <span class="campaign-meta mono">{s.published}/{s.total} parts</span>
               </a>
             </li>
           ))}
@@ -198,473 +141,192 @@ const jsonLd = {
       </section>
     )}
 
-    <hr class="hairline" />
-
-    {/* Stratum 2 — RECENT. */}
-    <section class="stratum stratum-recent" aria-labelledby="s-recent">
-      <h2 id="s-recent" class="stratum-h mono">▸ Recent drops</h2>
-      <ul class="recent-list">
-        {recentPosts.map((p) => (
-          <li class="recent-row" data-vertical={postVertical(p)}>
-            <a class="recent-link" href={`/blog/${p.id}`}>
-              <time class="recent-date mono" datetime={p.data.pubDate.toISOString()}>
-                {p.data.pubDate.toISOString().slice(0, 10)}
-              </time>
-              <span class="recent-meat">
-                <span class="recent-kicker mono">
-                  <span class="recent-tick" aria-hidden="true"></span>{verticalLabel(postVertical(p))}
-                </span>
-                <span class="recent-title">{p.data.title}</span>
-                <span class="recent-dek">{p.data.description}</span>
-              </span>
-              <span class="recent-rt mono">{p.data.readingTime ?? readingTimeFor(p)}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-      <p class="all-link">
-        <a href="/archive/">view all {allPosts.length} drops in the archive →</a>
-      </p>
-    </section>
-
-    <hr class="hairline" />
-
-    {/* Stratum 3 — BY CATEGORY (single typographic row). */}
+    {/* ── 4. SELECT GENRE — category arcade buttons ───────────────── */}
     {cats.length > 0 && (
-      <section class="stratum stratum-cats" aria-labelledby="s-cats">
-        <h2 id="s-cats" class="stratum-h mono">▸ Select level</h2>
-        <p class="cats-row">
-          {cats.map((c, i) => (
-            <>
-              {i > 0 && <span class="cats-dot" aria-hidden="true">·</span>}
-              <a href={`/categories/${slugifyTag(c.category)}/`} class="cats-link" data-vertical={verticalFor(c.category)}>
-                <span class="cats-name">{c.category}</span>
-                <span class="cats-count mono">({c.count})</span>
+      <section class="zone zone-genres" aria-labelledby="z-genres">
+        <header class="zone-head">
+          <h2 id="z-genres" class="zone-label mono">
+            <span class="zone-arrow" aria-hidden="true">▶</span>
+            Select Genre
+          </h2>
+        </header>
+        <ul class="genre-btns" role="list">
+          {cats.map((c) => (
+            <li>
+              <a class="genre-btn" href={`/categories/${slugifyTag(c.category)}/`}>
+                <span class="genre-btn-name">{c.category}</span>
+                <span class="genre-btn-count mono">{c.count}</span>
               </a>
-            </>
+            </li>
           ))}
-        </p>
+        </ul>
       </section>
     )}
+
   </div>
 </BaseLayout>
 
 <style>
   .container-page {
-    max-width: 920px;
+    max-width: 1100px;
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 4vw, 2rem);
+    padding-inline: clamp(1rem, 4vw, 2rem);
+    padding-bottom: 4rem;
   }
 
-  /* ── Masthead (front page) ─────────────────────────────────────────── */
-
-  /* ── Masthead (arcade attract screen) ──────────────────────────────── */
-
-  .masthead {
-    position: relative;
-    padding-block: clamp(1.75rem, 5vw, 3rem) 1.75rem;
+  /* ── zones ──────────────────────────────────────────────────────── */
+  .zone {
+    margin-top: clamp(2.5rem, 6vw, 4rem);
   }
-  /* CRT scanline overlay — the signature texture, gated by reduced-motion
-     it's static (no flicker), and kept very faint so copy stays crisp. */
-  .masthead::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: repeating-linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--ink) 5%, transparent) 0,
-      color-mix(in oklab, var(--ink) 5%, transparent) 1px,
-      transparent 1px,
-      transparent 4px
-    );
-    mix-blend-mode: screen;
-    opacity: 0.5;
-  }
-  .dateline {
+  .zone-head {
     display: flex;
-    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 2px solid var(--accent);
+  }
+  .zone-label {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin: 0;
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+  }
+  .zone-arrow { font-size: 10px; }
+  .zone-more {
     font-size: 11px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--ink-mute);
-    padding-bottom: 0.875rem;
-    border-bottom: 1px solid var(--rule);
-    margin-bottom: 1.75rem;
-  }
-  .dateline-vol { color: var(--accent); font-weight: 500; }
-  .dateline-sep { color: var(--rule-strong, var(--rule)); }
-  .dateline .count { color: var(--coin); }
-  .nameplate {
-    font-family: var(--font-pixel);
-    font-size: clamp(1.75rem, 6vw, 3.75rem);
-    font-weight: 400;
-    letter-spacing: 0.01em;
-    line-height: 1.15;
-    color: var(--ink);
-    margin: 0;
-    max-width: 16ch;
-    text-shadow:
-      0.08em 0.08em 0 var(--brand-soft),
-      0.14em 0.14em 0 color-mix(in oklab, var(--accent) 55%, transparent);
-  }
-  .nameplate-sub {
-    font-family: var(--font-body);
-    font-size: clamp(1.0625rem, 2vw, 1.25rem);
-    line-height: 1.5;
-    color: var(--ink-mute);
-    margin: 1.5rem 0 0;
-    max-width: 56ch;
-  }
-
-  /* ── XP bar — signature progress element (chunky pixel blocks) ──────── */
-  .xp-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    margin: 1.5rem 0 0;
-  }
-  .xp-label, .xp-next {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--ink-mute);
+    text-decoration: none;
     white-space: nowrap;
   }
-  .xp-label { color: var(--coin); }
-  .xp-track {
-    position: relative;
-    flex: 1 1 auto;
-    max-width: 260px;
-    height: 12px;
-    background: var(--paper-2);
-    border: 1px solid var(--rule-strong);
-    /* pixel-block segmentation via a repeating gap mask */
-    background-image: repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent 13px,
-      var(--paper) 13px,
-      var(--paper) 15px
-    );
-  }
-  .xp-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 62%;
-    background: var(--accent);
-    background-image: repeating-linear-gradient(
-      to right,
-      var(--accent) 0,
-      var(--accent) 13px,
-      var(--paper) 13px,
-      var(--paper) 15px
-    );
-    box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 60%, transparent);
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .xp-fill { animation: xp-load 900ms var(--ease-out, ease-out) both; }
-  }
-  @keyframes xp-load {
-    from { width: 0; }
-    to { width: 62%; }
+  .zone-more:hover { color: var(--accent); }
+
+  /* ── cartridge grid ─────────────────────────────────────────────── */
+  .cartridge-grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 1rem;
   }
 
-  .masthead-spine {
-    position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.625rem;
-    margin: 1.5rem 0 0;
-  }
-  .masthead-spine-label {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
+  .empty-state {
     color: var(--ink-mute);
-  }
-  .masthead-spine-name {
-    font-family: var(--font-heading);
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--ink);
-    text-decoration: none;
-    border-bottom: 1px solid var(--rule);
-  }
-  .masthead-spine-name:hover { color: var(--accent); border-bottom-color: var(--accent); }
-
-  .rule-heavy {
-    height: 3px;
-    background: var(--accent);
-    border: 0;
-    margin: 0;
-  }
-
-  /* ── Lead story ────────────────────────────────────────────────────── */
-
-  .lead {
-    --v: var(--v-personal);
-    padding-block: 1.75rem 0.5rem;
-  }
-  .lead[data-vertical='dev'] { --v: var(--v-dev); }
-  .lead[data-vertical='finance'] { --v: var(--v-finance); }
-  .lead[data-vertical='culture'] { --v: var(--v-culture); }
-  .lead[data-vertical='health'] { --v: var(--v-health); }
-  .lead-link { display: grid; gap: 0.625rem; color: var(--ink); text-decoration: none; }
-  .lead-kicker {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute);
-  }
-  .lead-tick { width: 8px; height: 8px; background: var(--v); flex: 0 0 auto; }
-  .lead-desk { color: var(--v); font-weight: 500; }
-  .lead-flag { border-left: 1px solid var(--rule); padding-left: 0.5rem; color: var(--coin); font-weight: 500; }
-  .lead-title {
-    font-family: var(--font-display);
-    font-size: clamp(1.875rem, 4.5vw, 2.75rem);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.08;
-    margin: 0;
-    max-width: 20ch;
-  }
-  .lead-link:hover .lead-title { color: var(--accent); }
-  .lead-dek {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    line-height: 1.5;
-    color: var(--ink-mute);
-    margin: 0;
-    max-width: 58ch;
-  }
-  .lead-meta { display: inline-flex; gap: 0.5rem; font-size: 11px; letter-spacing: 0.06em; color: var(--ink-mute); }
-
-  /* ── Strata ────────────────────────────────────────────────────────── */
-
-  .stratum { padding-block: 1.75rem 1.75rem; }
-  .stratum-h {
     font-family: var(--font-mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--accent);
-    font-weight: 600;
-    margin: 0 0 1.25rem;
+    font-size: 13px;
+    letter-spacing: 0.1em;
   }
 
-  /* ── In progress ──────────────────────────────────────────────────── */
-
-  .progress-list {
+  /* ── campaigns (series) ─────────────────────────────────────────── */
+  .campaign-list {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: 0;
   }
-  .progress-row { padding: 0; }
-  .progress-link {
+  .campaign-row {
+    border-bottom: 1px solid var(--rule);
+  }
+  .campaign-row:first-child {
+    border-top: 1px solid var(--rule);
+  }
+  .campaign-link {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    gap: 1rem;
-    align-items: baseline;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 1.25rem;
+    align-items: center;
+    padding-block: 0.875rem;
     color: var(--ink);
     text-decoration: none;
-    padding-block: 0.5rem;
+    padding-left: 0.75rem;
+    margin-left: -0.75rem;
+    border-left: 3px solid transparent;
+    transition: border-color var(--dur-fast, 120ms) ease;
   }
-  .progress-link:hover { color: var(--accent); }
-  .progress-link:hover .progress-meta,
-  .progress-link:hover .progress-ago { color: var(--accent); }
-  .progress-name {
+  .campaign-link:hover {
+    border-left-color: var(--accent);
+  }
+  .campaign-link:hover .campaign-name { color: var(--accent); }
+  .campaign-name {
     font-family: var(--font-display);
     font-size: 1.0625rem;
     font-weight: 600;
     letter-spacing: -0.01em;
-    color: var(--ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .progress-meta, .progress-ago {
-    font-family: var(--font-mono);
+  .campaign-progress { display: inline-flex; }
+  .campaign-meta {
     font-size: 11px;
     letter-spacing: 0.06em;
     color: var(--ink-mute);
+    white-space: nowrap;
   }
-  .progress-spine-mount { display: inline-flex; }
 
-  @media (max-width: 640px) {
-    .progress-link {
+  @media (max-width: 560px) {
+    .campaign-link {
       grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'name      ago'
-        'meta      meta'
-        'spine     spine';
-      row-gap: 0.25rem;
+      grid-template-areas: 'name meta' 'prog prog';
+      row-gap: 0.375rem;
     }
-    .progress-name { grid-area: name; }
-    .progress-meta { grid-area: meta; }
-    .progress-spine-mount { grid-area: spine; }
-    .progress-ago { grid-area: ago; text-align: right; }
+    .campaign-name { grid-area: name; }
+    .campaign-meta { grid-area: meta; }
+    .campaign-progress { grid-area: prog; }
   }
 
-  /* ── Recent ───────────────────────────────────────────────────────── */
-
-  .recent-list {
+  /* ── genre buttons ──────────────────────────────────────────────── */
+  .genre-btns {
     list-style: none;
     padding: 0;
     margin: 0;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 0.625rem;
   }
-  .recent-row {
-    --v: var(--v-personal);
-    border-bottom: 1px solid color-mix(in oklab, var(--rule) 70%, transparent);
-  }
-  .recent-row[data-vertical='dev'] { --v: var(--v-dev); }
-  .recent-row[data-vertical='finance'] { --v: var(--v-finance); }
-  .recent-row[data-vertical='culture'] { --v: var(--v-culture); }
-  .recent-row[data-vertical='health'] { --v: var(--v-health); }
-  .recent-row:last-child { border-bottom: 0; }
-  .recent-link {
-    display: grid;
-    grid-template-columns: 100px minmax(0, 1fr) auto;
-    gap: 1.25rem;
-    align-items: baseline;
-    color: var(--ink);
-    text-decoration: none;
-    padding-block: 0.875rem;
-    padding-left: 0.75rem;
-    margin-left: -0.75rem;
-    border-left: 2px solid transparent;
-    transition: border-color var(--dur-fast, 120ms) ease;
-  }
-  .recent-link:hover { border-left-color: var(--v); }
-  .recent-link:hover .recent-title { color: var(--accent); }
-  .recent-link:hover .recent-date,
-  .recent-link:hover .recent-rt { color: var(--accent); }
-
-  .recent-kicker {
+  .genre-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--v);
-    font-weight: 500;
-  }
-  .recent-tick { width: 6px; height: 6px; background: var(--v); flex: 0 0 auto; }
-
-  .recent-date {
-    color: var(--ink-mute);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.04em;
-    position: relative;
-    padding-left: 0.875rem;
-  }
-  /* dateline gutter: coral tick marks the wire-feed timestamp */
-  .recent-date::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.12em;
-    width: 3px;
-    height: 0.7em;
-    background: var(--cobalt);
-  }
-  .recent-meat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    min-width: 0;
-  }
-  .recent-title {
-    font-family: var(--font-display);
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    line-height: 1.3;
-  }
-  .recent-dek {
-    font-family: var(--font-body);
-    font-size: 14.5px;
-    color: var(--ink-mute);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-  }
-  .recent-rt {
-    color: var(--ink-mute);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 640px) {
-    .recent-link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      grid-template-areas:
-        'date   rt'
-        'meat   meat';
-      row-gap: 0.25rem;
-    }
-    .recent-date { grid-area: date; }
-    .recent-rt { grid-area: rt; text-align: right; }
-    .recent-meat { grid-area: meat; }
-  }
-
-  .all-link {
-    margin: 1.25rem 0 0;
-    font-family: var(--font-sans);
-    font-size: 13.6px;
-  }
-  .all-link a {
-    color: var(--ink-mute);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    text-decoration-color: var(--rule);
-  }
-  .all-link a:hover { color: var(--accent); text-decoration-color: var(--accent); }
-
-  /* ── By category (one row) ────────────────────────────────────────── */
-
-  .cats-row {
-    margin: 0;
-    line-height: 2;
-    color: var(--ink);
-  }
-  .cats-link {
-    --v: var(--v-personal);
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--paper-2);
+    border: 1px solid var(--rule-strong);
     color: var(--ink);
     text-decoration: none;
-    margin-inline: 0.125rem;
-  }
-  .cats-link[data-vertical='dev'] { --v: var(--v-dev); }
-  .cats-link[data-vertical='finance'] { --v: var(--v-finance); }
-  .cats-link[data-vertical='culture'] { --v: var(--v-culture); }
-  .cats-link[data-vertical='health'] { --v: var(--v-health); }
-  .cats-link:hover .cats-name { color: var(--v); }
-  .cats-name {
     font-family: var(--font-display);
-    font-size: 17px;
+    font-size: 0.9375rem;
     font-weight: 500;
-    letter-spacing: -0.01em;
+    transition:
+      background var(--dur-fast, 120ms) ease,
+      border-color var(--dur-fast, 120ms) ease,
+      color var(--dur-fast, 120ms) ease;
   }
-  .cats-count {
-    color: var(--ink-mute);
-    font-family: var(--font-mono);
+  .genre-btn:hover {
+    background: var(--brand-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .genre-btn-count {
     font-size: 11px;
-    margin-left: 0.25rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-mute);
+    background: var(--paper);
+    padding: 0.1rem 0.375rem;
+    border: 1px solid var(--rule);
   }
-  .cats-dot { color: var(--rule); margin-inline: 0.625rem; }
+  .genre-btn:hover .genre-btn-count {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 </style>

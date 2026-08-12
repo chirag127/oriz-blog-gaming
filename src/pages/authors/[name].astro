@@ -3,7 +3,7 @@
  * /authors/[name] — every post by a single author.
  */
 import type { GetStaticPaths } from 'astro'
-import PostCard from '~/components/blog/PostCard.astro'
+import CartridgeCard from '~/components/blog/CartridgeCard.astro'
 import BaseLayout from '~/layouts/BaseLayout.astro'
 import { getAuthorsWithCounts, getPostsByAuthor, slugifyTag } from '~/lib/blog'
 import { SITE_CONFIG } from '~/lib/config'
@@ -46,7 +46,7 @@ const jsonLd = {
 
     <ul class="post-grid">
       {posts.map((p) => (
-        <li><PostCard post={p} /></li>
+        <li><CartridgeCard post={p} /></li>
       ))}
     </ul>
   </div>

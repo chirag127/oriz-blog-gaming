@@ -27,25 +27,24 @@ const tags = (await getTagsWithCounts()).slice(0, 8).map(({ tag }) => tag)
 <footer class="blog-footer" role="contentinfo">
   <div class="bf-quote">
     <blockquote>
-      <span aria-hidden="true" class="bf-q-mark">▸</span>
+      <span aria-hidden="true" class="bf-q-mark">▶</span>
       Read the spec sheet before the marketing.
     </blockquote>
     <p class="bf-quote-attr">— oriz · arcade</p>
   </div>
   <div class="bf-grid">
     <div class="bf-col">
-      <h3 class="bf-h">Categories</h3>
+      <h3 class="bf-h">Genres</h3>
       <ul>
         {categories.map((c) => <li><a href={c.slug ? `/categories/${c.slug}/` : '/categories/'}>{c.name}</a></li>)}
       </ul>
     </div>
     <div class="bf-col">
-      <h3 class="bf-h">Recent</h3>
+      <h3 class="bf-h">Game Log</h3>
       <ul>
-        <li><a href="/blog/">Latest posts</a></li>
-        <li><a href="/archive/">Archive</a></li>
-        <li><a href="/archive/">All posts</a></li>
-        <li><a href="/now/">Now</a></li>
+        <li><a href="/blog/">Latest drops</a></li>
+        <li><a href="/archive/">Full archive</a></li>
+        <li><a href="/now/">Now playing</a></li>
       </ul>
     </div>
     <div class="bf-col">
@@ -55,9 +54,9 @@ const tags = (await getTagsWithCounts()).slice(0, 8).map(({ tag }) => tag)
       </ul>
     </div>
     <div class="bf-col">
-      <h3 class="bf-h">Series</h3>
+      <h3 class="bf-h">Campaigns</h3>
       <ul>
-        <li><a href="/series/">Browse series</a></li>
+        <li><a href="/series/">Browse campaigns</a></li>
         <li><a href="/blog/">Latest threads</a></li>
       </ul>
     </div>

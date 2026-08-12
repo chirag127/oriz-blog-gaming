@@ -1,0 +1,225 @@
+---
+/**
+ * CartridgeCard — game-cartridge-style post card for oriz-blog-gaming.
+ *
+ * Each post is a ROM cartridge slot: a coloured label spine on the left,
+ * a "game title" heading, genre tag, and a "PRESS A" read-more chip.
+ * Used on the homepage arcade-tile grid and the /blog/ index.
+ */
+import type { CollectionEntry } from 'astro:content'
+import { formatPostDate, postVertical, slugifyTag, verticalLabel } from '~/lib/blog'
+
+export interface Props {
+  post: CollectionEntry<'blog'>
+  /** index in the current grid (0-based) — used for stagger delay */
+  index?: number
+}
+
+const { post, index = 0 } = Astro.props
+const { title, description, pubDate, category, readingTime } = post.data
+const href = `/blog/${post.id}`
+const catHref = `/categories/${slugifyTag(category)}/`
+const vert = postVertical(post)
+const delay = `${index * 40}ms`
+---
+
+<article
+  class="cartridge"
+  data-vertical={vert}
+  style={`--stagger: ${delay}`}
+>
+  <!-- cartridge spine (coloured side strip) -->
+  <span class="cart-spine" aria-hidden="true"></span>
+
+  <div class="cart-body">
+    <span class="cart-genre mono">
+      <span class="cart-genre-tick" aria-hidden="true"></span>
+      <a href={catHref} class="cart-genre-name">{verticalLabel(vert)}</a>
+      <span class="cart-genre-sep" aria-hidden="true">·</span>
+      <a href={catHref} class="cart-cat-name">{category}</a>
+    </span>
+
+    <h3 class="cart-title">
+      <a class="cart-title-link" href={href}>{title}</a>
+    </h3>
+
+    <p class="cart-desc">{description}</p>
+
+    <div class="cart-foot">
+      <time class="cart-date mono" datetime={pubDate.toISOString()}>
+        {formatPostDate(pubDate)}
+      </time>
+      {readingTime && (
+        <span class="cart-rt mono">{readingTime}</span>
+      )}
+      <a class="cart-cta mono" href={href} tabindex="-1" aria-hidden="true">
+        PRESS A
+      </a>
+    </div>
+  </div>
+
+  <!-- notch decoration (cartridge connector) -->
+  <span class="cart-notch" aria-hidden="true"></span>
+</article>
+
+<style>
+  .cartridge {
+    position: relative;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-card, 3px);
+    display: grid;
+    grid-template-columns: 6px 1fr;
+    overflow: hidden;
+    transition:
+      border-color var(--dur-fast, 120ms) ease,
+      box-shadow var(--dur-fast, 120ms) ease;
+    --v: var(--v-personal);
+  }
+  .cartridge[data-vertical='dev']     { --v: var(--v-dev); }
+  .cartridge[data-vertical='finance'] { --v: var(--v-finance); }
+  .cartridge[data-vertical='culture'] { --v: var(--v-culture); }
+  .cartridge[data-vertical='health']  { --v: var(--v-health); }
+
+  .cartridge:hover {
+    border-color: var(--v);
+    box-shadow: 0 0 0 1px var(--v), 0 4px 20px color-mix(in oklab, var(--v) 18%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .cartridge {
+      animation: cart-in 280ms var(--ease-out, ease-out) both;
+      animation-delay: var(--stagger, 0ms);
+    }
+  }
+  @keyframes cart-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* coloured spine (the cartridge side label) */
+  .cart-spine {
+    display: block;
+    background: var(--v);
+    opacity: 0.85;
+    transition: opacity var(--dur-fast, 120ms) ease;
+  }
+  .cartridge:hover .cart-spine { opacity: 1; }
+
+  .cart-body {
+    padding: 1rem 1rem 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  .cart-genre {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .cart-genre-tick {
+    width: 6px;
+    height: 6px;
+    background: var(--v);
+    flex: 0 0 auto;
+  }
+  .cart-genre-name {
+    color: var(--v);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .cart-genre-name:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .cart-genre-sep { color: var(--rule-strong); }
+  .cart-cat-name {
+    color: var(--ink-mute);
+    text-decoration: none;
+  }
+  .cart-cat-name:hover { color: var(--v); }
+
+  .cart-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .cart-title-link {
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .cartridge:hover .cart-title-link { color: var(--accent); }
+
+  .cart-desc {
+    color: var(--ink-mute);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-clamp: 2;
+  }
+
+  .cart-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+  }
+  .cart-date {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--ink-mute);
+  }
+  .cart-rt {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--ink-mute);
+  }
+  .cart-rt::before {
+    content: '·';
+    margin-right: 0.625rem;
+    color: var(--rule-strong);
+  }
+  /* "PRESS A" chip — shows only on hover via parent */
+  .cart-cta {
+    margin-left: auto;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--accent);
+    opacity: 0;
+    transition: opacity var(--dur-fast, 120ms) ease;
+  }
+  .cartridge:hover .cart-cta { opacity: 1; }
+
+  /* notch at bottom — cartridge connector aesthetic */
+  .cart-notch {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40%;
+    height: 3px;
+    background: var(--rule);
+  }
+  @media (min-width: 480px) { .cart-notch { display: block; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cart-cta { opacity: 1; }
+  }
+</style>

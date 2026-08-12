@@ -5,7 +5,7 @@ import type { CollectionEntry } from 'astro:content'
  * Tag slug is the kebab-cased tag name (mirrors slugifyTag()).
  */
 import type { GetStaticPaths } from 'astro'
-import PostCard from '~/components/blog/PostCard.astro'
+import CartridgeCard from '~/components/blog/CartridgeCard.astro'
 import BaseLayout from '~/layouts/BaseLayout.astro'
 import { getPublishedPosts, slugifyTag } from '~/lib/blog'
 import { SITE_CONFIG } from '~/lib/config'
@@ -66,7 +66,7 @@ const jsonLd = {
       <ul class="post-list">
         {posts.map((p) => (
           <li>
-            <PostCard post={p} />
+            <CartridgeCard post={p} />
           </li>
         ))}
       </ul>

@@ -1,0 +1,113 @@
+---
+/*
+ * Wordmark — `oriz` set in the Press Start 2P bitmap face with a magenta
+ * "insert-coin" pixel block wedged after the mark — the arcade attract-screen
+ * cursor rendered as the brand mark.
+ *
+ * The pixel block is this site's family anchor equivalent (oriz-blog uses a
+ * serif z-strike; here it's an 8-bit coin square). Each site owns its type/
+ * palette: oriz-blog-gaming's wordmark is bitmap + magenta/gold.
+ */
+
+interface Props {
+  /** Sub-section name — rendered after a `/` separator. */
+  subtitle?: string
+  /** Display size in CSS pixels. */
+  size?: number
+  /** Wrap the mark in an <a href="/"> — defaults to '/' when subtitle is set. */
+  href?: string | null
+  /** Render as <h1> (the masthead) rather than <div>. */
+  asHeading?: boolean
+}
+
+const { subtitle, size = 96, href = null, asHeading = false } = Astro.props
+const Tag = asHeading ? 'h1' : ('div' as const)
+---
+
+{
+  href ? (
+    <a class="wordmark-link" href={href} aria-label={subtitle ? `oriz / ${subtitle}` : 'oriz'}>
+      <Tag class="wordmark" style={`--wm-size: ${size}px;`}>
+        <span class="wordmark-mark">oriz</span>
+        <span class="wordmark-coin" aria-hidden="true" />
+        {subtitle && (
+          <>
+            <span class="wordmark-sep" aria-hidden="true">
+              /
+            </span>
+            <span class="wordmark-sub">{subtitle}</span>
+          </>
+        )}
+      </Tag>
+    </a>
+  ) : (
+    <Tag class="wordmark" style={`--wm-size: ${size}px;`}>
+      <span class="wordmark-mark">oriz</span>
+      <span class="wordmark-coin" aria-hidden="true" />
+      {subtitle && (
+        <>
+          <span class="wordmark-sep" aria-hidden="true">
+            /
+          </span>
+          <span class="wordmark-sub">{subtitle}</span>
+        </>
+      )}
+    </Tag>
+  )
+}
+
+<style>
+  .wordmark-link {
+    display: inline-block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin: 0;
+    font-family: var(--font-pixel, ui-monospace, monospace);
+    font-weight: 400;
+    /* the bitmap face runs large per glyph — scale the pixel wordmark down
+       to ~0.42x the requested display size so it sits on a sane baseline. */
+    font-size: calc(var(--wm-size, 96px) * 0.42);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .wordmark-mark {
+    display: inline-block;
+  }
+  .wordmark-coin {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    background: var(--accent);
+    /* two-tone pixel coin: magenta block with a gold inner pip */
+    box-shadow: inset 0 0 0 0.18em var(--coin);
+    flex: 0 0 auto;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wordmark-link:hover .wordmark-coin,
+    .wordmark:hover .wordmark-coin {
+      animation: coin-blink 0.6s steps(1) infinite;
+    }
+  }
+  @keyframes coin-blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  .wordmark-sep {
+    margin-inline: 0.1em;
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+  .wordmark-sub {
+    color: var(--coin);
+    font-family: var(--font-pixel, ui-monospace, monospace);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+</style>
